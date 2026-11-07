@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Auscultation Simulator</title>
+<style>
+:root{
+  --bg:#eef2f5; --panel:#ffffff; --panel2:#f6f8fa; --ink:#15212b; --muted:#5a6b79; --line:#d6dee5;
+  --accent:#0e7c74; --accent-soft:#dff1ee; --accent-ink:#ffffff;
+  --warn:#8a5206; --warn-bg:#fff4e0; --ok:#15803d; --ok-bg:#e7f6ec; --bad:#b91c1c; --bad-bg:#fdecec;
+  --skin-hi:#f7dfcc; --skin:#edc9ad; --skin-lo:#d3a382; --skin-line:#8f5f46;
+  --stage:#e6ecf1; --stage2:#d9e1e8;
+  --dot:#0e7c74; --label:#10202b; --halo:rgba(255,255,255,.9);
+  --pcg-bg:#0d161d; --pcg-grid:#1b2a35; --pcg-ink:#8fa6b6; --pcg-hi:#5eead4;
+  --pcg-sound:#e2e8f0; --pcg-extra:#fbbf24; --pcg-murmur:#f472b6; --pcg-breath:#60a5fa; --pcg-adv:#c084fc;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 6px 18px rgba(16,24,40,.07);
+  --fs:14px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0c1217; --panel:#131c23; --panel2:#18232c; --ink:#e4ebf1; --muted:#90a3b3; --line:#25333e;
+    --accent:#2dd4bf; --accent-soft:#123a37; --accent-ink:#04201d;
+    --warn:#fbbf24; --warn-bg:#2d2310; --ok:#4ade80; --ok-bg:#10291a; --bad:#f87171; --bad-bg:#2e1414;
+    --skin-hi:#ecd2bf; --skin:#ddb89c; --skin-lo:#b88a6b; --skin-line:#6e4532;
+    --stage:#111a21; --stage2:#0b1116;
+    --dot:#2dd4bf; --label:#eef4f8; --halo:rgba(10,16,21,.88);
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.3);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0c1217; --panel:#131c23; --panel2:#18232c; --ink:#e4ebf1; --muted:#90a3b3; --line:#25333e;
+  --accent:#2dd4bf; --accent-soft:#123a37; --accent-ink:#04201d;
+  --warn:#fbbf24; --warn-bg:#2d2310; --ok:#4ade80; --ok-bg:#10291a; --bad:#f87171; --bad-bg:#2e1414;
+  --skin-hi:#ecd2bf; --skin:#ddb89c; --skin-lo:#b88a6b; --skin-line:#6e4532;
+  --stage:#111a21; --stage2:#0b1116;
+  --dot:#2dd4bf; --label:#eef4f8; --halo:rgba(10,16,21,.88);
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.3);
+  color-scheme:dark;
+}
+/* Presentation: high contrast, large */
+:root.present{
+  --bg:#000; --panel:#0a0a0a; --panel2:#141414; --ink:#ffffff; --muted:#d4d4d4; --line:#3a3a3a;
+  --accent:#ffd60a; --accent-soft:#2b2400; --accent-ink:#000;
+  --stage:#000; --stage2:#000; --dot:#ffd60a; --label:#ffffff; --halo:rgba(0,0,0,.92);
+  --warn:#ffd60a; --warn-bg:#1f1a00;
+  --fs:19px; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:var(--fs)/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+.app{display:grid;grid-template-rows:auto 1fr;height:100vh;height:100dvh}
+/* top bar */
+.topbar{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:.2px;margin-right:6px}
+.brand svg{width:24px;height:24px;color:var(--accent)}
+.spacer{flex:1}
+.seg{display:inline-flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:2px}
+.seg button{border:0;background:transparent;padding:5px 11px;border-radius:7px;cursor:pointer;color:var(--muted);font-weight:550}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.btn{border:1px solid var(--line);background:var(--panel2);padding:5px 11px;border-radius:9px;cursor:pointer;font-weight:550;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.vol{display:flex;align-items:center;gap:6px}
+.vol input{width:110px}
+input[type=range]{accent-color:var(--accent)}
+/* layout */
+.main{display:grid;grid-template-columns:320px 1fr;grid-template-rows:1fr auto;min-height:0}
+.panel{grid-row:1 / span 2;background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:12px 14px 20px}
+.panel h2{font-size:.78em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:14px 0 6px;font-weight:650}
+.panel section:first-child h2{margin-top:2px}
+.caselist{display:flex;flex-direction:column;gap:3px}
+.caselist button{display:flex;gap:8px;align-items:baseline;text-align:left;border:1px solid transparent;background:transparent;padding:6px 8px;border-radius:8px;cursor:pointer}
+.caselist button:hover{background:var(--panel2)}
+.caselist button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.caselist .n{color:var(--muted);font-variant-numeric:tabular-nums;min-width:1.4em}
+.caselist .t{font-size:.78em;color:var(--muted);margin-left:auto;white-space:nowrap}
+.row{display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap}
+.row label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.slider{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin:8px 0}
+.slider input{grid-column:1 / span 2;width:100%}
+.slider .v{font-variant-numeric:tabular-nums;font-weight:600}
+.slider.disabled{opacity:.45}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:9px 11px;font-size:.88em;margin-top:12px;display:flex;gap:8px}
+.about{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.92em}
+.about h3{margin:0 0 4px;font-size:1.02em}
+.about p{margin:6px 0}
+.about .tag{display:inline-block;font-size:.78em;padding:1px 7px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+.kbd{font-size:.82em;color:var(--muted);margin-top:10px}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:.9em;background:var(--panel2)}
+/* stage */
+.stage{position:relative;min-height:0;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,var(--stage),var(--stage2));touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.stage.dragging{cursor:grabbing}
+#manikin{position:absolute;inset:0;width:100%;height:100%}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.banner{position:absolute;left:14px;top:12px;max-width:min(440px,60%);background:color-mix(in srgb,var(--panel) 88%,transparent);border:1px solid var(--line);border-radius:12px;padding:8px 12px;box-shadow:var(--shadow);pointer-events:none;backdrop-filter:blur(6px)}
+.banner .k{font-size:.74em;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:650}
+.banner .nm{font-size:1.15em;font-weight:680;margin:1px 0}
+.banner .sub{font-size:.86em;color:var(--muted)}
+.pill{position:absolute;left:14px;bottom:12px;background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:.88em;pointer-events:none;box-shadow:var(--shadow);max-width:calc(100% - 28px)}
+.pill b{color:var(--accent)}
+.breath{position:absolute;right:14px;top:12px;display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--panel) 90%,transparent);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:.86em;pointer-events:none}
+.breath .bar{width:8px;height:22px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}
+.breath .bar i{position:absolute;left:0;right:0;bottom:0;background:var(--pcg-breath);border-radius:4px}
+.viewtag{position:absolute;right:14px;bottom:12px;font-weight:700;letter-spacing:.12em;font-size:.8em;color:var(--muted);pointer-events:none}
+.starthint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:14px;padding:16px 20px;text-align:center;pointer-events:none;max-width:320px}
+.starthint b{display:block;font-size:1.1em;margin-bottom:4px}
+/* pcg */
+.pcgwrap{background:var(--panel);border-top:1px solid var(--line);padding:8px 12px 10px;display:grid;grid-template-columns:1fr 230px;gap:12px}
+.pcghead{display:flex;justify-content:space-between;align-items:baseline;font-size:.82em;color:var(--muted);margin-bottom:4px;gap:10px}
+.pcghead b{color:var(--ink)}
+#pcg{width:100%;height:118px;display:block;border-radius:10px;background:var(--pcg-bg)}
+.meters{font-size:.8em;display:flex;flex-direction:column;gap:4px;overflow:auto;max-height:142px}
+.meters .m{display:grid;grid-template-columns:96px 1fr;gap:6px;align-items:center}
+.meters .m span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
+.meters .m .b{height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.meters .m .b i{display:block;height:100%;width:0;background:var(--accent);border-radius:5px;transition:width .08s linear}
+.meters .mh{font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-size:.9em}
+/* quiz */
+.qopts{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.qopts button{text-align:left;padding:9px 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);cursor:pointer;font-weight:550}
+.qopts button:hover:not(:disabled){border-color:var(--accent)}
+.qopts button.right{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.qopts button.wrong{background:var(--bad-bg);border-color:var(--bad);color:var(--bad)}
+.qopts button:disabled{cursor:default}
+.feedback{margin-top:10px;font-size:.92em}
+.feedback .verdict{font-weight:700;font-size:1.05em}
+.score{margin-top:10px;color:var(--muted);font-size:.9em}
+/* manikin CSS */
+#manikin .skin{fill:url(#gTorso)}
+#manikin .skin.arm{fill:url(#gArm)}
+#manikin .skin.head{fill:url(#gHead)}
+#manikin .det{fill:none;stroke:var(--skin-line);stroke-linecap:round;pointer-events:none}
+#manikin .detf{fill:var(--skin-line);pointer-events:none}
+#manikin .ribs,#manikin .lines,#manikin .sites{display:none;pointer-events:none}
+#manikin.show-ribs .ribs{display:inline}
+#manikin.show-lines .lines{display:inline}
+#manikin.teach.mod-heart .sites.heart{display:inline}
+#manikin.teach.mod-lungs .sites.lungs{display:inline}
+#manikin .rib{fill:none;stroke:var(--skin-line);stroke-opacity:.17;stroke-width:6.5;stroke-linecap:round}
+#manikin .ribedge{fill:none;stroke:var(--skin-line);stroke-opacity:.22;stroke-width:1}
+#manikin .icsl{font-size:9px;fill:var(--skin-line);opacity:.8;font-weight:600}
+#manikin .ln{stroke:#2563eb;stroke-opacity:.55;stroke-width:1.2;stroke-dasharray:5 4;fill:none}
+#manikin .lnl{font-size:9.5px;fill:#1d4ed8;font-weight:650;paint-order:stroke;stroke:var(--halo);stroke-width:3px}
+#manikin .dot{fill:var(--dot);stroke:var(--halo);stroke-width:2}
+#manikin .dot.rad{fill:none;stroke:var(--dot);stroke-width:2;stroke-dasharray:3 2}
+#manikin .slabel{font-size:12px;font-weight:650;fill:var(--label);paint-order:stroke;stroke:var(--halo);stroke-width:3.5px;stroke-linejoin:round}
+#manikin .slabel.small{font-size:10.5px;font-weight:600}
+#manikin.zoomed .slabel{font-size:7.5px;stroke-width:2.5px}
+#manikin.zoomed .slabel.small{font-size:6.5px}
+#manikin.zoomed .lnl{font-size:6.5px;stroke-width:2px}
+#manikin.zoomed .dot{stroke-width:1.4}
+#manikin.zoomed .icsl{font-size:6.5px}
+:root.present #manikin .slabel{font-size:16px}
+:root.present #manikin.zoomed .slabel{font-size:10px}
+:root.present #manikin .slabel.small{font-size:13px}
+:root.present #manikin .dot{stroke-width:2.5}
+#manikin .marker{fill:none;stroke:#ef4444;stroke-width:3;pointer-events:none}
+#manikin .marker.pulse{animation:pulse 1.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.8);opacity:0}}
+#manikin .view{display:none}
+#manikin.view-front .view.front,#manikin.view-back .view.back{display:inline}
+[hidden]{display:none!important}
+/* 3D view */
+.gl3d{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.labels3d{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lab3{position:absolute;left:0;top:0;white-space:nowrap;font-size:.8em;font-weight:650;color:var(--label);margin:-.72em 0 0 13px;
+  text-shadow:0 0 3px var(--halo),0 0 3px var(--halo),0 0 6px var(--halo),0 0 8px var(--halo);transition:opacity .15s;will-change:transform}
+.lab3.left{margin-left:-13px;transform-origin:right}
+.lab3.rad{font-weight:600;font-size:.72em;color:var(--muted)}
+:root.present .lab3{font-size:1.05em}
+.presets{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0}
+.presets button{border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:5px 2px;cursor:pointer;font-size:.86em;font-weight:550}
+.presets button:hover{border-color:var(--accent)}
+.presets button[data-p=chest]{grid-column:span 2}
+#rotateBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.hint{font-size:.82em;color:var(--muted)}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+/* presentation tweaks */
+:root.present .panel{width:auto}
+:root.present .main{grid-template-columns:380px 1fr}
+:root.present #pcg{height:170px}
+:root.present .kbd,:root.present .about p.long{display:none}
+/* responsive */
+@media (max-width: 880px){
+  body{overflow:auto}
+  .app{height:auto;min-height:100dvh}
+  .main{grid-template-columns:1fr;grid-template-rows:auto auto auto}
+  .stage{height:68vh;min-height:420px;grid-row:1}
+  .pcgwrap{grid-row:2;grid-template-columns:1fr}
+  .panel{grid-row:3;border-right:0;border-top:1px solid var(--line)}
+  .vol input{width:80px}
+  .banner{max-width:calc(100% - 28px)}
+  .breath{top:auto;bottom:46px}
+}
+@media (prefers-reduced-motion: reduce){ #manikin .marker.pulse{animation:none} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3v6a5 5 0 0 0 10 0V3"/><path d="M11 14v2a4 4 0 0 0 8 0v-2"/><circle cx="19" cy="12" r="2"/></svg>
+      <span>Auscultation Simulator</span>
+    </div>
+    <div class="seg" id="moduleSeg" role="group" aria-label="Module">
+      <button data-v="heart" aria-pressed="true">Heart</button><button data-v="lungs" aria-pressed="false">Lungs</button>
+    </div>
+    <div class="seg" id="modeSeg" role="group" aria-label="Mode">
+      <button data-v="teach" aria-pressed="true">Teaching</button><button data-v="quiz" aria-pressed="false">Quiz</button>
+    </div>
+    <button class="btn" id="presentBtn" title="Large, high-contrast fullscreen for projectors (P)">⛶ Presentation</button>
+    <div class="spacer"></div>
+    <div class="vol">
+      <button class="btn" id="muteBtn" title="Mute (M)" aria-label="Mute">🔊</button>
+      <input type="range" id="vol" min="0" max="100" value="75" aria-label="Master volume">
+    </div>
+    <button class="btn" id="themeBtn" title="Toggle light/dark theme">◐ Theme</button>
+  </header>
+
+  <div class="main">
+    <aside class="panel" id="panel">
+      <section id="caseSection">
+        <h2 id="caseHeading">Heart cases</h2>
+        <div class="caselist" id="caseList"></div>
+      </section>
+
+      <section id="quizSection" hidden>
+        <h2>Quiz</h2>
+        <div id="quizPrompt">Place the chest piece, listen at several sites, then choose the diagnosis.</div>
+        <div class="qopts" id="quizOpts"></div>
+        <div class="feedback" id="quizFeedback"></div>
+        <div class="row"><button class="btn primary" id="quizNext">Next case →</button></div>
+        <div class="score">Score: <b id="score">0 / 0</b></div>
+      </section>
+
+      <section>
+        <h2>Chest piece</h2>
+        <div class="seg" id="headSeg" role="group" aria-label="Chest piece">
+          <button data-v="diaphragm" aria-pressed="true">Diaphragm</button><button data-v="bell" aria-pressed="false">Bell</button>
+        </div>
+        <div class="row" style="font-size:.85em;color:var(--muted)" id="headHint">Diaphragm: high frequencies (S1, S2, AR, MR, rubs).</div>
+        <div class="row"><label><input type="checkbox" id="keepChk"> Keep in place when released</label></div>
+      </section>
+
+      <section>
+        <h2>View</h2>
+        <div class="row"><div class="seg" id="dispSeg" role="group" aria-label="Display"><button data-v="3d" aria-pressed="false">3D</button><button data-v="2d" aria-pressed="true">2D</button></div>
+          <span class="hint" id="build3d">Building 3D manikin…</span><span class="hint" id="dispNote" hidden>3D needs WebGL — showing 2D.</span></div>
+        <div id="view3dBox" hidden>
+          <div class="presets" id="presetGrid" role="group" aria-label="Camera presets">
+            <button data-p="front">Front</button><button data-p="back">Back</button><button data-p="left" title="Patient's left side">Left</button><button data-p="right" title="Patient's right side">Right</button>
+            <button data-p="top" title="From above the head">Top</button><button data-p="bottom" title="From below (feet)">Bottom</button><button data-p="chest">Chest close-up</button><button data-p="reset">Reset</button>
+          </div>
+          <div class="row"><button class="btn" id="rotateBtn" aria-pressed="false" title="All drags rotate the view">⟲ Rotate mode</button><span class="hint">or hold <kbd>Space</kbd> / <kbd>Alt</kbd></span></div>
+          <div class="hint">Drag on the body: move the chest piece · drag the background: rotate · right-drag or two fingers: pan · wheel or pinch: zoom</div>
+        </div>
+        <div id="view2dBox">
+        <div class="seg" id="viewSeg" role="group" aria-label="View">
+          <button data-v="front" aria-pressed="true">Front (supine)</button><button data-v="back" aria-pressed="false">Back</button>
+        </div>
+        <div class="row"><div class="seg" id="zoomSeg" role="group" aria-label="Zoom"><button data-v="body" aria-pressed="true">Whole body</button><button data-v="chest" aria-pressed="false">Chest close-up</button></div></div>
+        </div>
+        <div class="row"><label><input type="checkbox" id="ribsChk" checked> Ribs &amp; ICS</label><label><input type="checkbox" id="linesChk"> Landmark lines</label></div>
+        <div class="row"><label><input type="checkbox" id="bgChk" checked> Background sounds (breath / heart)</label></div>
+      </section>
+
+      <section>
+        <h2>Parameters</h2>
+        <div class="slider"><span>Heart rate</span><span class="v" id="hrV">72 bpm</span><input type="range" id="hr" min="40" max="160" value="72"></div>
+        <div class="slider" id="gradeBox"><span>Murmur grade (Levine)</span><span class="v" id="gradeV">III / VI</span><input type="range" id="grade" min="1" max="6" value="3"></div>
+      </section>
+
+      <section id="aboutSection">
+        <h2>About this case</h2>
+        <div class="about" id="about"></div>
+      </section>
+
+      <div class="note"><span aria-hidden="true">🎧</span><span>Use headphones — low-frequency sounds (S3, S4, rumble) are not audible on laptop speakers.</span></div>
+      <div class="kbd">Tap or drag on the body to place the chest piece. Keys: <kbd>←↑→↓</kbd> move · <kbd>D</kbd>/<kbd>B</kbd> diaphragm/bell · <kbd>V</kbd> next view · <kbd>Z</kbd> chest close-up · <kbd>R</kbd> reset view · <kbd>L</kbd> lift · hold <kbd>Space</kbd>/<kbd>Alt</kbd> rotate · <kbd>M</kbd> mute · <kbd>P</kbd> presentation</div>
+    </aside>
+
+    <section class="stage" id="stage" aria-label="Manikin. Drag the stethoscope chest piece over the body.">
+      <svg id="manikin" viewBox="0 0 600 990" preserveAspectRatio="xMidYMid meet" class="view-front mod-heart teach show-ribs"></svg>
+      <div class="labels3d" id="labels3d" aria-hidden="true"></div>
+      <svg id="overlay" aria-hidden="true">
+        <defs>
+          <radialGradient id="chrome" cx="38%" cy="32%" r="75%"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#cfd6dc"/><stop offset=".75" stop-color="#8b959e"/><stop offset="1" stop-color="#5d666e"/></radialGradient>
+          <radialGradient id="membrane" cx="40%" cy="35%" r="80%"><stop offset="0" stop-color="#3b4550"/><stop offset="1" stop-color="#151a1f"/></radialGradient>
+          <radialGradient id="cavity" cx="55%" cy="60%" r="70%"><stop offset="0" stop-color="#0d1013"/><stop offset=".7" stop-color="#2a3138"/><stop offset="1" stop-color="#6b747c"/></radialGradient>
+          <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4"/></filter>
+        </defs>
+        <path id="tubeShadow" fill="none" stroke="rgba(0,0,0,.22)" stroke-linecap="round" filter="url(#blur)"/>
+        <path id="tube" fill="none" stroke="#2c3238" stroke-linecap="round"/>
+        <path id="tubeHi" fill="none" stroke="rgba(255,255,255,.22)" stroke-linecap="round"/>
+        <ellipse id="cpShadow" fill="rgba(0,0,0,.3)" filter="url(#blur)"/>
+        <g id="cp"></g>
+      </svg>
+      <div class="banner" id="banner"><div class="k" id="bannerK">Teaching · Heart</div><div class="nm" id="bannerName"></div><div class="sub" id="bannerSub"></div></div>
+      <div class="breath" id="breathInd"><span class="bar"><i id="breathBar"></i></span><span id="breathTxt">Expiration</span></div>
+      <div class="pill" id="status">Drag the chest piece onto the chest</div>
+      <div class="viewtag" id="viewTag">FRONT · SUPINE</div>
+      <div class="starthint" id="startHint"><b>Click or tap to start audio</b>Then drag the stethoscope chest piece onto the manikin.</div>
+    </section>
+
+    <section class="pcgwrap" id="pcgPanel">
+      <div>
+        <div class="pcghead"><span id="pcgTitle"><b>Live phonocardiogram</b> · what you hear at the current position</span><span id="nowTxt">Now: —</span></div>
+        <canvas id="pcg"></canvas>
+      </div>
+      <div class="meters" id="meters"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+/*__APP_BUNDLE__*/
+</script>
+</body>
+</html>
